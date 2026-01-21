@@ -1,0 +1,19 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "leaves": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": [
+        "userId",
+        "status",
+        "appliedDate"
+      ]
+    }
+  }
+}

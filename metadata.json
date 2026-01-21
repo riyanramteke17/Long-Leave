@@ -1,0 +1,7 @@
+{
+  "name": "Navgurukul Leave Management",
+  "description": "A comprehensive, multi-role leave management system for campuses and hostels featuring automated workflows and approval tracking.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
