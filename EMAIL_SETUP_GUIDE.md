@@ -143,16 +143,15 @@ Click **Publish**
 ✅ **SuperAdmin approves** → Email to User + All Admins (confirmation)
 ✅ **Any rejection** → Email to User + All Admins (rejection notice)
 
-## Alternative: SendGrid (If Gmail doesn't work)
+## Alternative: Resend SMTP (Recommended)
 
-If you prefer SendGrid:
-
-1. Sign up at sendgrid.com (Free tier: 100 emails/day)
-2. Create API Key
-3. Use this SMTP URI instead:
+If you prefer to use **Resend**, follow these steps:
+1. Copy your API Key (`re_...`)
+2. Use this SMTP URI in the Extension configuration:
 ```
-smtps://apikey:YOUR_SENDGRID_API_KEY@smtp.sendgrid.net:465
+smtps://resend:YOUR_RESEND_API_KEY@smtp.resend.com:465
 ```
+3. Set your **Default FROM Address** to `onboarding@resend.dev` (or your verified domain email).
 
 ---
 

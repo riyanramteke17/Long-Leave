@@ -7,6 +7,8 @@ import CheckerPanel from './components/CheckerPanel';
 import LeaveDetailView from './components/LeaveDetailView';
 import RoleManagement from './components/RoleManagement';
 import { auth, db, googleProvider } from './services/firebase';
+import { generateEmailContent, EmailNotificationType } from './services/emailService';
+import emailjs from '@emailjs/browser';
 import {
   signInWithPopup,
   signInWithEmailAndPassword,
@@ -20,8 +22,7 @@ import {
   onSnapshot,
   setDoc,
   updateDoc,
-  getDoc,
-  addDoc
+  getDoc
 } from "firebase/firestore";
 
 const ACCESS_MATRIX: Record<UserRole, (UserRole | 'ROLE_MGMT' | 'PROFILE')[]> = {
@@ -42,25 +43,36 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeView, setActiveView] = useState<UserRole | 'ROLE_MGMT' | 'PROFILE' | null>(null);
 
-  // Email Helper Function - Sends email via Firebase Extension
+  // EmailJS Configuration - FREE email sending directly from browser!
+  const EMAILJS_SERVICE_ID = (import.meta as any).env.VITE_EMAILJS_SERVICE_ID || 'service_1ie1o17';
+  const EMAILJS_TEMPLATE_ID = (import.meta as any).env.VITE_EMAILJS_TEMPLATE_ID || 'template_m8fvdoa';
+  const EMAILJS_PUBLIC_KEY = (import.meta as any).env.VITE_EMAILJS_PUBLIC_KEY || 'DR3mzdwijWZvtWRNT';
+
+  // Email Helper Function - Using EmailJS (FREE - 200 emails/month)
   const sendEmail = async (to: string[], subject: string, body: string) => {
     try {
-      await addDoc(collection(db, 'mail'), {
-        to,
-        message: {
-          subject,
-          text: body,
-          html: `<div style="font-family: Arial, sans-serif; padding: 20px;">
-                   <h2 style="color: #4F46E5;">${subject}</h2>
-                   <p style="white-space: pre-line;">${body}</p>
-                   <hr style="margin: 20px 0;">
-                   <p style="color: #64748B; font-size: 12px;">This is an automated message from Navgurukul Leave Management System.</p>
-                 </div>`
-        }
+      console.log(`[EmailJS] Sending email to ${to.join(', ')}...`);
+
+      // EmailJS sends to each recipient individually
+      const sendPromises = to.map(async (recipient) => {
+        const templateParams = {
+          to_email: recipient,
+          subject: subject,
+          message: body,
+        };
+
+        return emailjs.send(
+          EMAILJS_SERVICE_ID,
+          EMAILJS_TEMPLATE_ID,
+          templateParams,
+          EMAILJS_PUBLIC_KEY
+        );
       });
-      console.log('Email queued successfully');
+
+      await Promise.all(sendPromises);
+      console.log('[EmailJS] ✅ All emails sent successfully!');
     } catch (error) {
-      console.error('Failed to send email:', error);
+      console.error('[EmailJS] ❌ Failed to send email:', error);
     }
   };
 
@@ -437,12 +449,13 @@ const App: React.FC = () => {
               .filter(u => u.role === UserRole.ADMIN)
               .map(u => u.email);
 
+            console.log(`[Leave Flow] ${currentUser.name} applied. Found ${adminEmails.length} Admins:`, adminEmails);
+
             if (adminEmails.length > 0) {
-              await sendEmail(
-                adminEmails,
-                `New Leave Request - ${currentUser.name}`,
-                `${currentUser.name} has applied for leave.\n\nDuration: ${req.startDate} to ${req.endDate}\nReason: ${req.reason}\nTotal Days: ${req.totalDays} days\n\nPlease review and approve/reject in the Admin Dashboard.`
-              );
+              const { subject, body } = await generateEmailContent('APPLIED', req);
+              await sendEmail(Array.from(new Set(adminEmails.filter(e => !!e))), subject, body);
+            } else {
+              console.warn("[Leave Flow] No Admins found to notify!");
             }
           } catch (error) {
             console.error("Firebase Write Error:", error);
@@ -453,67 +466,108 @@ const App: React.FC = () => {
       case UserRole.ADMIN:
       case UserRole.SUB_ADMIN:
       case UserRole.SUPER_ADMIN:
-        return <CheckerPanel user={currentUser} viewRole={activeView} requests={leaveRequests} users={users} onApprove={async (id) => {
-          const req = leaveRequests.find(r => r.id === id);
-          if (!req) return;
-          let nextStatus = req.status;
-          if (req.status === LeaveStatus.PENDING_ADMIN) nextStatus = LeaveStatus.PENDING_SUBADMIN;
-          else if (req.status === LeaveStatus.PENDING_SUBADMIN) nextStatus = LeaveStatus.PENDING_SUPERADMIN;
-          else if (req.status === LeaveStatus.PENDING_SUPERADMIN) nextStatus = LeaveStatus.APPROVED;
-
-          await updateDoc(doc(db, 'leaves', id), {
-            status: nextStatus,
-            history: [...req.history, { action: 'Approved', user: currentUser.name, role: currentUser.role, date: new Date().toISOString() }]
-          });
-
-          // EMAIL: Notify next approver or all on final approval
-          if (nextStatus === LeaveStatus.APPROVED) {
-            // Final approval - notify everyone
-            const allEmails = [req.studentEmail, ...users.filter(u => [UserRole.ADMIN, UserRole.SUB_ADMIN, UserRole.SUPER_ADMIN].includes(u.role)).map(u => u.email)];
-            await sendEmail(
-              allEmails,
-              `Leave Request Approved ✓ - ${req.studentName}`,
-              `The leave request has been fully approved!\n\nStudent: ${req.studentName}\nDuration: ${req.startDate} to ${req.endDate}\nTotal Days: ${req.totalDays} days\n\nThe leave has been granted.`
-            );
-          } else {
-            // Partial approval - notify next level
-            let nextApproverEmails: string[] = [];
-            if (nextStatus === LeaveStatus.PENDING_SUBADMIN) {
-              nextApproverEmails = users.filter(u => u.role === UserRole.SUB_ADMIN).map(u => u.email);
-            } else if (nextStatus === LeaveStatus.PENDING_SUPERADMIN) {
-              nextApproverEmails = users.filter(u => u.role === UserRole.SUPER_ADMIN).map(u => u.email);
-            }
-            if (nextApproverEmails.length > 0) {
-              await sendEmail(
-                nextApproverEmails,
-                `Leave Request Pending Your Approval - ${req.studentName}`,
-                `A leave request has been approved by ${currentUser.role} and is now pending your review.\n\nStudent: ${req.studentName}\nDuration: ${req.startDate} to ${req.endDate}\nReason: ${req.reason}\nTotal Days: ${req.totalDays} days\n\nPlease review in your dashboard.`
-              );
-            }
-          }
-        }} onReject={async (id, reason) => {
-          const req = leaveRequests.find(r => r.id === id);
-          if (!req) return;
-          await updateDoc(doc(db, 'leaves', id), {
-            status: LeaveStatus.REJECTED,
-            rejectionReason: reason,
-            rejectedByRole: currentUser.role,
-            rejectedByEmail: currentUser.email,
-            rejectionDateTime: new Date().toISOString(),
-            history: [...req.history, { action: 'Rejected', user: currentUser.name, role: currentUser.role, date: new Date().toISOString() }]
-          });
-
-          // EMAIL: Notify student and all admins about rejection
-          const allEmails = [req.studentEmail, ...users.filter(u => [UserRole.ADMIN, UserRole.SUB_ADMIN, UserRole.SUPER_ADMIN].includes(u.role)).map(u => u.email)];
-          await sendEmail(
-            allEmails,
-            `Leave Request Rejected ✗ - ${req.studentName}`,
-            `The leave request has been rejected by ${currentUser.role}.\n\nStudent: ${req.studentName}\nDuration: ${req.startDate} to ${req.endDate}\nRejection Reason: ${reason}\n\nThe student has been notified.`
-          );
-        }} onViewDetails={setSelectedRequest} />;
+        return <CheckerPanel
+          user={currentUser}
+          viewRole={activeView}
+          requests={leaveRequests}
+          users={users}
+          onApprove={handleApproveLeave}
+          onReject={handleRejectLeave}
+          onViewDetails={setSelectedRequest}
+        />;
       default: return null;
     }
   };
+
+  // --- REFACTORED LEAVE ACTIONS WITH EMAILS ---
+
+  async function handleApproveLeave(id: string) {
+    if (!currentUser) return;
+    const req = leaveRequests.find(r => r.id === id);
+    if (!req) return;
+
+    let nextStatus = req.status;
+    let emailType: EmailNotificationType | null = null;
+    let recipientEmails: string[] = [];
+
+    if (req.status === LeaveStatus.PENDING_ADMIN) {
+      nextStatus = LeaveStatus.PENDING_SUBADMIN;
+      emailType = 'PENDING_SUBADMIN';
+      recipientEmails = users.filter(u => u.role === UserRole.SUB_ADMIN).map(u => u.email);
+    } else if (req.status === LeaveStatus.PENDING_SUBADMIN) {
+      nextStatus = LeaveStatus.PENDING_SUPERADMIN;
+      emailType = 'PENDING_SUPERADMIN';
+      recipientEmails = users.filter(u => u.role === UserRole.SUPER_ADMIN).map(u => u.email);
+    } else if (req.status === LeaveStatus.PENDING_SUPERADMIN) {
+      nextStatus = LeaveStatus.APPROVED;
+      emailType = 'FULLY_APPROVED';
+      // Notify student + all admins
+      recipientEmails = [
+        req.studentEmail,
+        ...users.filter(u => [UserRole.ADMIN, UserRole.SUB_ADMIN, UserRole.SUPER_ADMIN].includes(u.role)).map(u => u.email)
+      ];
+    }
+
+    try {
+      await updateDoc(doc(db, 'leaves', id), {
+        status: nextStatus,
+        history: [...(req.history || []), { action: 'Approved', user: currentUser.name, role: currentUser.role, date: new Date().toISOString() }]
+      });
+
+      if (emailType && recipientEmails.length > 0) {
+        console.log(`[Leave Flow] Approving. Generating ${emailType} email for:`, recipientEmails);
+        const { subject, body } = await generateEmailContent(emailType, { ...req, status: nextStatus });
+        await sendEmail(Array.from(new Set(recipientEmails.filter(e => !!e))), subject, body);
+      } else if (emailType) {
+        console.warn(`[Leave Flow] No recipients found for ${emailType} notification!`);
+      }
+
+      if (selectedRequest?.id === id) setSelectedRequest(null);
+    } catch (error) {
+      console.error("Approval failed:", error);
+    }
+  }
+
+  async function handleRejectLeave(id: string, reason: string) {
+    if (!currentUser) return;
+    const req = leaveRequests.find(r => r.id === id);
+    if (!req) return;
+
+    try {
+      const updatedReq = {
+        ...req,
+        status: LeaveStatus.REJECTED,
+        rejectionReason: reason,
+        rejectedByRole: currentUser.role,
+        rejectedByEmail: currentUser.email,
+        rejectionDateTime: new Date().toISOString(),
+      };
+
+      await updateDoc(doc(db, 'leaves', id), {
+        status: LeaveStatus.REJECTED,
+        rejectionReason: reason,
+        rejectedByRole: currentUser.role,
+        rejectedByEmail: currentUser.email,
+        rejectionDateTime: new Date().toISOString(),
+        history: [...(req.history || []), { action: 'Rejected', user: currentUser.name, role: currentUser.role, date: new Date().toISOString() }]
+      });
+
+      // Notify student + all admins
+      const recipientEmails = [
+        req.studentEmail,
+        ...users.filter(u => [UserRole.ADMIN, UserRole.SUB_ADMIN, UserRole.SUPER_ADMIN].includes(u.role)).map(u => u.email)
+      ];
+
+      console.log(`[Leave Flow] Rejecting. Sending notification to:`, recipientEmails);
+
+      const { subject, body } = await generateEmailContent('REJECTED', updatedReq);
+      await sendEmail(Array.from(new Set(recipientEmails.filter(e => !!e))), subject, body);
+
+      if (selectedRequest?.id === id) setSelectedRequest(null);
+    } catch (error) {
+      console.error("Rejection failed:", error);
+    }
+  }
 
   return (
     <SharedLayout
@@ -524,21 +578,13 @@ const App: React.FC = () => {
       isAuthorized={isAuthorized as any}
     >
       {renderContent()}
-      {selectedRequest && <LeaveDetailView request={selectedRequest} currentUser={currentUser!} onClose={() => setSelectedRequest(null)} onApprove={async (id) => {
-        const req = leaveRequests.find(r => r.id === id);
-        if (!req) return;
-        let nextStatus = req.status;
-        if (req.status === LeaveStatus.PENDING_ADMIN) nextStatus = LeaveStatus.PENDING_SUBADMIN;
-        else if (req.status === LeaveStatus.PENDING_SUBADMIN) nextStatus = LeaveStatus.PENDING_SUPERADMIN;
-        else if (req.status === LeaveStatus.PENDING_SUPERADMIN) nextStatus = LeaveStatus.APPROVED;
-        await updateDoc(doc(db, 'leaves', id), { status: nextStatus, history: [...req.history, { action: 'Approved', user: currentUser!.name, role: currentUser!.role, date: new Date().toISOString() }] });
-        setSelectedRequest(null);
-      }} onReject={async (id, res) => {
-        const req = leaveRequests.find(r => r.id === id);
-        if (!req) return;
-        await updateDoc(doc(db, 'leaves', id), { status: LeaveStatus.REJECTED, rejectionReason: res, rejectedByRole: currentUser!.role, rejectedByEmail: currentUser!.email, rejectionDateTime: new Date().toISOString(), history: [...req.history, { action: 'Rejected', user: currentUser!.name, role: currentUser!.role, date: new Date().toISOString() }] });
-        setSelectedRequest(null);
-      }} />}
+      {selectedRequest && <LeaveDetailView
+        request={selectedRequest}
+        currentUser={currentUser!}
+        onClose={() => setSelectedRequest(null)}
+        onApprove={handleApproveLeave}
+        onReject={handleRejectLeave}
+      />}
     </SharedLayout>
   );
 };
