@@ -49,14 +49,16 @@ const App: React.FC = () => {
   const EMAILJS_PUBLIC_KEY = (import.meta as any).env.VITE_EMAILJS_PUBLIC_KEY || 'DR3mzdwijWZvtWRNT';
 
   // Email Helper Function - Using EmailJS (FREE - 200 emails/month)
-  const sendEmail = async (to: string[], subject: string, body: string) => {
+  const sendEmail = async (to: string[], subject: string, body: string, fromName?: string, fromEmail?: string) => {
     try {
-      console.log(`[EmailJS] Sending email to ${to.join(', ')}...`);
+      console.log(`[EmailJS] Sending email to ${to.join(', ')} from ${fromName || 'System'}...`);
 
       // EmailJS sends to each recipient individually
       const sendPromises = to.map(async (recipient) => {
         const templateParams = {
           to_email: recipient,
+          from_name: fromName || "Leave System",
+          reply_to: fromEmail || "",
           subject: subject,
           message: body,
         };
@@ -454,7 +456,13 @@ const App: React.FC = () => {
 
             if (adminEmails.length > 0) {
               const { subject, body } = await generateEmailContent('APPLIED', req);
-              await sendEmail(Array.from(new Set(adminEmails.filter(e => !!e))), subject, body);
+              await sendEmail(
+                Array.from(new Set(adminEmails.filter(e => !!e))),
+                subject,
+                body,
+                currentUser.name,
+                currentUser.email
+              );
             } else {
               console.warn("[Leave Flow] No Admins found to notify!");
             }
@@ -518,7 +526,13 @@ const App: React.FC = () => {
       if (emailType && recipientEmails.length > 0) {
         console.log(`[Leave Flow] Approving. Generating ${emailType} email for:`, recipientEmails);
         const { subject, body } = await generateEmailContent(emailType, { ...req, status: nextStatus });
-        await sendEmail(Array.from(new Set(recipientEmails.filter(e => !!e))), subject, body);
+        await sendEmail(
+          Array.from(new Set(recipientEmails.filter(e => !!e))),
+          subject,
+          body,
+          currentUser.name,
+          currentUser.email
+        );
       } else if (emailType) {
         console.warn(`[Leave Flow] No recipients found for ${emailType} notification!`);
       }
@@ -562,7 +576,13 @@ const App: React.FC = () => {
       console.log(`[Leave Flow] Rejecting. Sending notification to:`, recipientEmails);
 
       const { subject, body } = await generateEmailContent('REJECTED', updatedReq);
-      await sendEmail(Array.from(new Set(recipientEmails.filter(e => !!e))), subject, body);
+      await sendEmail(
+        Array.from(new Set(recipientEmails.filter(e => !!e))),
+        subject,
+        body,
+        currentUser.name,
+        currentUser.email
+      );
 
       if (selectedRequest?.id === id) setSelectedRequest(null);
     } catch (error) {
