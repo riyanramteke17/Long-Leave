@@ -33,8 +33,9 @@ export interface LeaveRequest {
   expectedReturnDate: string;
   totalDays: number;
   appliedDate: string;
+  createdAt: string;
   status: LeaveStatus;
-  documentUrl?: string;
+  documentUrls?: string[];
   history: LeaveHistory[];
 
   // FIXED: Standard Rejection Metadata fields for DB

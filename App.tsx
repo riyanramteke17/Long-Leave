@@ -89,7 +89,8 @@ const App: React.FC = () => {
 
     const unsubscribeLeaves = onSnapshot(leavesCollection, (snapshot) => {
       const leaveList: LeaveRequest[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeaveRequest));
-      setLeaveRequests(leaveList.sort((a, b) => new Date(b.appliedDate).getTime() - new Date(a.appliedDate).getTime()));
+      // SORT BY createdAt (ISO String) for sub-day precision
+      setLeaveRequests(leaveList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     });
 
     // 2. Auth State Observer - Robust Implementation with Fallback

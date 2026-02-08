@@ -17,9 +17,30 @@ const StudentPanel: React.FC<StudentPanelProps> = ({ user, requests, onApply, on
     endDate: '',
     totalDays: 0,
     expectedReturnDate: '',
+    documentLinks: [''], // Array of links, starting with one empty
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Helper to update links
+  const updateLink = (index: number, value: string) => {
+    const newLinks = [...formData.documentLinks];
+    newLinks[index] = value;
+    setFormData({ ...formData, documentLinks: newLinks });
+  };
+
+  const addLinkField = () => {
+    setFormData({ ...formData, documentLinks: [...formData.documentLinks, ''] });
+  };
+
+  const removeLinkField = (index: number) => {
+    if (formData.documentLinks.length <= 1) {
+      setFormData({ ...formData, documentLinks: [''] });
+      return;
+    }
+    const newLinks = formData.documentLinks.filter((_, i) => i !== index);
+    setFormData({ ...formData, documentLinks: newLinks });
+  };
 
   // Auto-calculate days
   useEffect(() => {
@@ -46,6 +67,10 @@ const StudentPanel: React.FC<StudentPanelProps> = ({ user, requests, onApply, on
 
     try {
       setIsSubmitting(true);
+
+      // Filter out empty links
+      const validLinks = formData.documentLinks.filter(link => link.trim() !== '');
+
       await onApply({
         ...formData,
         studentName: user.name,
@@ -54,12 +79,12 @@ const StudentPanel: React.FC<StudentPanelProps> = ({ user, requests, onApply, on
         appliedDate: new Date().toISOString().split('T')[0],
         status: LeaveStatus.PENDING_ADMIN, // Default initial status
         history: [{ action: 'Applied', user: user.name, role: UserRole.USER, date: new Date().toISOString() }],
-        documentUrl: 'https://picsum.photos/seed/leave-doc/800/1200'
-      });
+        documentUrls: validLinks
+      } as any);
 
       // Reset and close
       setShowForm(false);
-      setFormData({ reason: '', startDate: '', endDate: '', totalDays: 0, expectedReturnDate: '' });
+      setFormData({ reason: '', startDate: '', endDate: '', totalDays: 0, expectedReturnDate: '', documentLinks: [''] });
 
     } catch (error: any) {
       console.error("Leave application failed:", error);
@@ -119,7 +144,7 @@ const StudentPanel: React.FC<StudentPanelProps> = ({ user, requests, onApply, on
       {/* Modal for Application Form */}
       {showForm && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-50/50">
               <h4 className="text-lg font-bold text-slate-800">New Leave Request</h4>
               <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600">
@@ -127,7 +152,7 @@ const StudentPanel: React.FC<StudentPanelProps> = ({ user, requests, onApply, on
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-8 space-y-6">
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Student Name</label>
@@ -149,6 +174,47 @@ const StudentPanel: React.FC<StudentPanelProps> = ({ user, requests, onApply, on
                   className="w-full border border-slate-200 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
                   placeholder="Describe your reason for leave clearly..."
                 />
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-semibold text-slate-700">Document Links (Evidence)</label>
+                  <button
+                    type="button"
+                    onClick={addLinkField}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center space-x-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    <span>Add Link</span>
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {formData.documentLinks.map((link, idx) => (
+                    <div key={idx} className="flex items-center space-x-2">
+                      <div className="flex-1 relative">
+                        <input
+                          type="url"
+                          value={link}
+                          onChange={(e) => updateLink(idx, e.target.value)}
+                          className="w-full border border-slate-200 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition-all outline-none pr-10"
+                          placeholder="Paste document link (Google Drive, etc.)"
+                        />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300">
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.172 13.828a4 4 0 015.656 0l4-4a4 4 0 115.656 5.656l-1.102 1.101" /></svg>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeLinkField(idx)}
+                        className="p-3 text-slate-400 hover:text-rose-500 transition-colors"
+                      >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-400 mt-1">Add links to medical certificates, parent permission, or other proofs.</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

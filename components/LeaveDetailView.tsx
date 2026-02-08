@@ -11,12 +11,12 @@ interface LeaveDetailViewProps {
   onReject: (id: string, reason: string) => void;
 }
 
-const LeaveDetailView: React.FC<LeaveDetailViewProps> = ({ 
-  request, 
-  currentUser, 
-  onClose, 
-  onApprove, 
-  onReject 
+const LeaveDetailView: React.FC<LeaveDetailViewProps> = ({
+  request,
+  currentUser,
+  onClose,
+  onApprove,
+  onReject
 }) => {
   const [rejectionMode, setRejectionMode] = useState(false);
   const [rejectionText, setRejectionText] = useState('');
@@ -31,8 +31,8 @@ const LeaveDetailView: React.FC<LeaveDetailViewProps> = ({
   const handleRejectSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!rejectionText.trim()) {
-        alert("Rejection reason is mandatory.");
-        return;
+      alert("Rejection reason is mandatory.");
+      return;
     }
     // Call parent rejection handler
     onReject(request.id, rejectionText);
@@ -42,7 +42,7 @@ const LeaveDetailView: React.FC<LeaveDetailViewProps> = ({
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200 border border-white/20">
-        
+
         {/* Modal Header */}
         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
           <div>
@@ -56,7 +56,7 @@ const LeaveDetailView: React.FC<LeaveDetailViewProps> = ({
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-8 space-y-8">
-          
+
           {/* HIGH-VISIBILITY REJECTION WARNING BOX (FIXED) */}
           {request.status === LeaveStatus.REJECTED && (
             <div className="bg-rose-50 border-2 border-rose-200 p-6 rounded-3xl flex items-start space-x-5 animate-in slide-in-from-top-4 shadow-sm">
@@ -76,7 +76,7 @@ const LeaveDetailView: React.FC<LeaveDetailViewProps> = ({
                     Date: <span className="text-rose-900">{request.rejectionDateTime ? new Date(request.rejectionDateTime).toLocaleString() : 'N/A'}</span>
                   </p>
                 </div>
-                
+
                 <div className="bg-white border-l-4 border-rose-600 p-5 rounded-xl shadow-inner">
                   <p className="text-[10px] font-black text-rose-500 uppercase mb-2 tracking-widest">Official Reason</p>
                   <p className="text-rose-900 text-sm font-medium leading-relaxed whitespace-pre-wrap">
@@ -100,7 +100,7 @@ const LeaveDetailView: React.FC<LeaveDetailViewProps> = ({
                   <p className="text-xs text-slate-500">{request.studentEmail}</p>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-3 mt-4">
                 <div className="bg-white p-4 border border-slate-200 rounded-2xl">
                   <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Departure</p>
@@ -140,20 +140,47 @@ const LeaveDetailView: React.FC<LeaveDetailViewProps> = ({
               </p>
             </div>
           </section>
+
+          {request.documentUrls && request.documentUrls.length > 0 && (
+            <section className="space-y-4">
+              <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Attached Evidence ({request.documentUrls.length})</h5>
+              <div className="space-y-3">
+                {request.documentUrls.map((url, index) => (
+                  <div key={index} className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex items-center justify-between group hover:border-indigo-200 transition-colors">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.172 13.828a4 4 0 015.656 0l4-4a4 4 0 115.656 5.656l-1.102 1.101" /></svg>
+                      </div>
+                      <p className="text-xs font-bold text-slate-700 truncate max-w-[200px] md:max-w-xs">{url}</p>
+                    </div>
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-1.5 bg-white border border-slate-200 text-indigo-600 rounded-lg text-[10px] font-black shadow-sm hover:border-indigo-500 hover:bg-indigo-50 transition-all flex items-center space-x-1.5"
+                    >
+                      <span>Open Link</span>
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
 
         {/* Footer Actions / Rejection Form */}
         <div className="p-6 border-t border-slate-100 bg-white flex justify-end items-center space-x-3">
           {canAct && !rejectionMode ? (
             <>
-              <button 
-                onClick={() => setRejectionMode(true)} 
+              <button
+                onClick={() => setRejectionMode(true)}
                 className="px-6 py-3 border border-rose-200 text-rose-600 font-extrabold rounded-2xl hover:bg-rose-50 transition-all text-sm uppercase tracking-wider"
               >
                 Deny Application
               </button>
-              <button 
-                onClick={() => onApprove(request.id)} 
+              <button
+                onClick={() => onApprove(request.id)}
                 className="px-8 py-3 bg-indigo-600 text-white font-extrabold rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all text-sm uppercase tracking-wider"
               >
                 {request.status === LeaveStatus.PENDING_SUPERADMIN ? 'Final Grant Approval' : 'Authorize & Forward'}
@@ -161,38 +188,38 @@ const LeaveDetailView: React.FC<LeaveDetailViewProps> = ({
             </>
           ) : rejectionMode ? (
             <form onSubmit={handleRejectSubmit} className="w-full flex flex-col items-stretch space-y-4 animate-in slide-in-from-bottom-4">
-               <div className="w-full text-left">
-                 <label className="block text-xs font-black text-rose-600 uppercase mb-3 tracking-widest">Detailed Rejection Statement (Mandatory)</label>
-                 <textarea 
-                   autoFocus
-                   required
-                   value={rejectionText}
-                   onChange={(e) => setRejectionText(e.target.value)}
-                   placeholder="Example: Student must complete pending exams before leave can be granted..."
-                   className="w-full border-2 border-rose-100 rounded-2xl p-4 focus:border-rose-400 outline-none transition-all resize-none text-sm min-h-[100px] shadow-sm"
-                 />
-                 <p className="text-[10px] text-rose-400 mt-2 font-bold italic">* This reason will be visible to the student and all administrative staff.</p>
-               </div>
-               <div className="flex justify-end space-x-4 border-t border-rose-50 pt-4">
-                 <button 
-                   type="button" 
-                   onClick={() => setRejectionMode(false)} 
-                   className="px-6 py-3 text-slate-400 font-bold hover:text-slate-600 text-sm"
-                 >
-                   Discard Rejection
-                 </button>
-                 <button 
-                   type="submit"
-                   disabled={!rejectionText.trim()}
-                   className={`px-8 py-3 font-black rounded-2xl transition-all text-sm uppercase tracking-wider ${rejectionText.trim() ? 'bg-rose-600 text-white hover:bg-rose-700 shadow-lg shadow-rose-200' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
-                 >
-                   Commit Rejection to Database
-                 </button>
-               </div>
+              <div className="w-full text-left">
+                <label className="block text-xs font-black text-rose-600 uppercase mb-3 tracking-widest">Detailed Rejection Statement (Mandatory)</label>
+                <textarea
+                  autoFocus
+                  required
+                  value={rejectionText}
+                  onChange={(e) => setRejectionText(e.target.value)}
+                  placeholder="Example: Student must complete pending exams before leave can be granted..."
+                  className="w-full border-2 border-rose-100 rounded-2xl p-4 focus:border-rose-400 outline-none transition-all resize-none text-sm min-h-[100px] shadow-sm"
+                />
+                <p className="text-[10px] text-rose-400 mt-2 font-bold italic">* This reason will be visible to the student and all administrative staff.</p>
+              </div>
+              <div className="flex justify-end space-x-4 border-t border-rose-50 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setRejectionMode(false)}
+                  className="px-6 py-3 text-slate-400 font-bold hover:text-slate-600 text-sm"
+                >
+                  Discard Rejection
+                </button>
+                <button
+                  type="submit"
+                  disabled={!rejectionText.trim()}
+                  className={`px-8 py-3 font-black rounded-2xl transition-all text-sm uppercase tracking-wider ${rejectionText.trim() ? 'bg-rose-600 text-white hover:bg-rose-700 shadow-lg shadow-rose-200' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
+                >
+                  Commit Rejection to Database
+                </button>
+              </div>
             </form>
           ) : (
-            <button 
-              onClick={onClose} 
+            <button
+              onClick={onClose}
               className="px-12 py-3 bg-slate-900 text-white font-black rounded-2xl hover:bg-slate-800 transition-all text-sm uppercase tracking-widest"
             >
               Close View

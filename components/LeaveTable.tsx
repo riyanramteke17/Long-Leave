@@ -43,7 +43,14 @@ const LeaveTable: React.FC<LeaveTableProps> = ({ requests, role, onApprove, onRe
             {requests.map((req) => (
               <tr key={req.id} className="hover:bg-slate-50 transition-colors group">
                 <td className="px-6 py-4">
-                  <div className="font-semibold text-slate-800">{req.studentName}</div>
+                  <div className="flex items-center space-x-2">
+                    <div className="font-semibold text-slate-800">{req.studentName}</div>
+                    {req.documentUrls && req.documentUrls.length > 0 && (
+                      <div className="text-indigo-500" title={`Has ${req.documentUrls.length} Attachment(s)`}>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                      </div>
+                    )}
+                  </div>
                   <div className="text-xs text-slate-500">{req.id} • {req.appliedDate}</div>
                 </td>
                 <td className="px-6 py-4">
@@ -60,17 +67,17 @@ const LeaveTable: React.FC<LeaveTableProps> = ({ requests, role, onApprove, onRe
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center space-x-2">
-                    <button 
+                    <button
                       onClick={() => onViewDetails(req)}
                       className="px-4 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-lg text-xs font-bold hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
                     >
                       View Full Details
                     </button>
-                    
+
                     {/* Fixed UserRole.STUDENT to UserRole.USER */}
                     {role !== UserRole.USER && req.status !== LeaveStatus.APPROVED && req.status !== LeaveStatus.REJECTED && (
                       <>
-                        <button 
+                        <button
                           onClick={() => onApprove?.(req.id)}
                           className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                           title="Quick Approve"
