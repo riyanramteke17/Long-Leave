@@ -78,6 +78,11 @@ const App: React.FC = () => {
     }
   };
 
+  // Helper: Check if email is from navgurukul.org
+  const isNavgurukulEmail = (email: string | null) => {
+    return email?.toLowerCase().endsWith('@navgurukul.org');
+  };
+
   // 1. Firebase Listeners (Users & Leaves)
   useEffect(() => {
     // Firestore Collections
@@ -99,6 +104,14 @@ const App: React.FC = () => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
+          // SECONDARY SAFETY: Immediately sign out if email domain is unauthorized
+          if (!isNavgurukulEmail(firebaseUser.email)) {
+            console.warn(`[Auth restriction] Unauthorized domain attempt: ${firebaseUser.email}`);
+            setAuthError("Only @navgurukul.org emails are allowed.");
+            await signOut(auth);
+            return;
+          }
+
           const userRef = doc(db, 'users', firebaseUser.uid);
           let userSnap = await getDoc(userRef);
 
@@ -278,6 +291,11 @@ const App: React.FC = () => {
     const pass = formData.get('pass') as string;
     const name = formData.get('name') as string;
 
+    if (!isNavgurukulEmail(email)) {
+      setAuthError("Only @navgurukul.org emails are allowed.");
+      return;
+    }
+
     try {
       if (authMode === 'LOGIN') {
         const res = await signInWithEmailAndPassword(auth, email, pass);
@@ -336,6 +354,14 @@ const App: React.FC = () => {
   const handleGoogleLogin = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
+
+      if (!isNavgurukulEmail(result.user.email)) {
+        console.warn(`[Auth restriction] Google login rejected for: ${result.user.email}`);
+        setAuthError("Only @navgurukul.org emails are allowed.");
+        await signOut(auth);
+        return;
+      }
+
       const userRef = doc(db, 'users', result.user.uid);
       const snap = await getDoc(userRef);
 

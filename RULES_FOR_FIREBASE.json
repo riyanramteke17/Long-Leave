@@ -1,12 +1,12 @@
 {
     "rules": {
         "leaves": {
-            ".read": "auth != null",
-            ".write": "auth != null"
+            ".read": "auth != null && auth.token.email.endsWith('@navgurukul.org')",
+            ".write": "auth != null && auth.token.email.endsWith('@navgurukul.org')"
         },
         "users": {
-            ".read": "auth != null",
-            ".write": "auth != null"
+            ".read": "auth != null && auth.token.email.endsWith('@navgurukul.org')",
+            ".write": "auth != null && auth.token.email.endsWith('@navgurukul.org')"
         }
     }
 }

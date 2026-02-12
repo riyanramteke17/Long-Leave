@@ -1,12 +1,12 @@
 {
     "rules": {
         "users": {
-            ".read": "auth != null",
-            ".write": "auth != null"
+            ".read": "auth != null && auth.token.email.endsWith('@navgurukul.org')",
+            ".write": "auth != null && auth.token.email.endsWith('@navgurukul.org')"
         },
         "leaves": {
-            ".read": "auth != null",
-            ".write": "auth != null",
+            ".read": "auth != null && auth.token.email.endsWith('@navgurukul.org')",
+            ".write": "auth != null && auth.token.email.endsWith('@navgurukul.org')",
             ".indexOn": [
                 "userId",
                 "status",
